@@ -33,11 +33,15 @@ help_default() {
 
 help_override() {
     echo "Sets the current override toolchain."
-    echo "Usage: multirust override <toolchain>"
+    echo "Usage: multirust override <toolchain> --custom <toolchain-path> --link"
     echo
     echo "Sets the toolchain that will be used when working at or below the"
     echo "current directory. If the toolchain is not already installed then"
     echo "it is first installed."
+    echo
+    echo "Use --custom <path> to install a local toolchain. This will copy"
+    echo "the toolchain in multirust's home. It's also possible to use --link"
+    echo "to create a symlink to the custom toolchain."
     echo
     echo "To remove an existing override use \`multirust remove-override\`."
 }
@@ -892,12 +896,31 @@ install_toolchain_from_dist() {
 
 install_toolchain_if_not_installed() {
     local _toolchain="$1"
+    local _custom_toolchain="$2"
+    local _create_link="$3"
     assert_nz "$_toolchain" "toolchain"
 
     is_toolchain_installed "$_toolchain"
     if [ "$RETVAL" = true ]; then
 	say "using existing install for '$_toolchain'"
 	return 0
+    elif [ ! -z "$_custom_toolchain" ]; then
+	if [ ! -e "$_custom_toolchain" ]; then
+	    err 'specified path does not exist'
+	fi
+
+	get_toolchain_dir "$_toolchain"
+	local _toolchain_dir="$RETVAL"
+	local _custom_toolchain_dir="$(cd $_custom_toolchain && pwd)"
+
+	say "installing toolchain '$_toolchain'"
+	if [ "$_create_link" == "--link" ]; then
+	    say "creating link from $_custom_toolchain_dir"
+	    ln -s "$_custom_toolchain_dir" "$_toolchain_dir"
+	else
+	    say "copying from $_custom_toolchain_dir"
+	    cp -R "$_custom_toolchain_dir" "$_toolchain_dir"
+	fi
     else
 	say "installing toolchain '$_toolchain'"
 	install_toolchain_from_dist "$_toolchain"
@@ -1456,7 +1479,12 @@ case "$cmd" in
 	if [ -z "$2" ]; then
 	    err 'unspecified override toolchain. try `multirust help override`'
 	fi
-	install_toolchain_if_not_installed "$2"
+
+	if [[ "$3" = "--custom" && -z "$4" ]]; then
+	    err 'unspecified toolchain path. try `multirust help override`'
+	fi
+
+	install_toolchain_if_not_installed "$2" "$4" "$5"
 	set_override "$2"
 	;;
 
