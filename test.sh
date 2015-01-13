@@ -415,6 +415,13 @@ build_mock_channel() {
     # Copy the intermediate installers too, though without manifests, checksums, etc.
     cp "$MOCK_BUILD_DIR/pkg"/* "$MOCK_DIST_DIR/dist/$_date/"
     cp "$MOCK_BUILD_DIR/pkg"/* "$MOCK_DIST_DIR/dist/"
+
+    mkdir -p "$MOCK_DIST_DIR/custom/$_date"
+
+    for t in "$MOCK_BUILD_DIR/pkg"/*.tar.gz;
+    do
+	tar xzf "$t" --strip 1 -C "$MOCK_DIST_DIR/custom/$_date/"
+    done
 }
 
 build_mocks() {
@@ -565,6 +572,14 @@ expect_output_ok "hash-stable-2" rustc --version
 
 pre "install override toolchain from archive"
 try multirust override nightly-2015-01-01
+expect_output_ok "hash-nightly-1" rustc --version
+try multirust override beta-2015-01-01
+expect_output_ok "hash-beta-1" rustc --version
+try multirust override stable-2015-01-01
+expect_output_ok "hash-stable-1" rustc --version
+
+pre "install override toolchain from path"
+try multirust override nightly-from-path --link-local "$MOCK_DIST_DIR/custom/2015-01-01"
 expect_output_ok "hash-nightly-1" rustc --version
 try multirust override beta-2015-01-01
 expect_output_ok "hash-beta-1" rustc --version
